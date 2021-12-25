@@ -1,0 +1,58 @@
+---
+- name: Retrieve and install Alacritty
+  hosts: all
+  tags:
+    - install
+  vars:
+    repo_name: alacritty/alacritty
+    repo_pre: https://github.com/{{ repo_name }}/releases/download
+    system: "{{ ansible_facts.system | lower }}"
+  tasks:
+    - name: Get latest version
+      shell:
+        cmd: >
+          curl --silent "https://api.github.com/repos/{{ repo_name }}/releases/latest" \
+            | grep tag_name \
+            | sed -E 's/.*"([^"]+)".*/\1/'
+        warn: False
+      register: latest_version
+    - name: Download package
+      vars:
+        v: "{{ latest_version.stdout }}"
+      get_url: 
+        url: "{{ repo_pre }}/{{ v }}/alacritty-{{ v }}.dmg"
+        dest: /tmp/alacritty-{{ v }}.dmg
+    - name: Mount volume
+      vars:
+        v: "{{ latest_version.stdout }}"
+      shell: >
+        hdiutil attach /tmp/alacritty-{{ v }}.dmg
+    - name: Copy files
+      vars:
+        v: "{{ latest_version.stdout }}"
+      copy:
+        remote_src: yes
+        src: /Volumes/Alacritty/Alacritty.app
+        dest: /Applications/
+    - name: Unmount
+      shell: >
+        hdiutil eject /Volumes/Alacritty
+    - name: Remove package
+      vars:
+        v: "{{ latest_version.stdout }}"
+      file:
+        path: /tmp/alacritty-{{ v }}.dmg
+        state: absent
+
+- name: Uninstall Alacritty
+  hosts: all
+  vars:
+    system: "{{ ansible_facts.system | lower }}"
+    dest: "{{ '~/Library/Fonts/JetBrainsMono' if system == 'darwin' else '~/.fonts/JetBrainsMono' }}"
+  tags:
+    - uninstall
+  tasks:
+    - name: Remove application directory
+      file: 
+        path: /Applications/Alacritty.app
+        state: absent

@@ -1,0 +1,70 @@
+---
+- name: Retrieve and install JetBrains Mono font
+  hosts: all
+  tags:
+    - install
+  vars:
+    repo_name: JetBrains/JetBrainsMono
+    repo_pre: https://github.com/{{ repo_name }}/releases/download
+    system: "{{ ansible_facts.system | lower }}"
+    dest: "{{ '~/Library/Fonts/JetBrainsMono' if system == 'darwin' else '~/.fonts/JetBrainsMono' }}"
+  tasks:
+    - name: Get latest version of font JetBrains Mono
+      shell:
+        cmd: >
+          curl --silent "https://api.github.com/repos/{{ repo_name }}/releases/latest" \
+            | grep tag_name \
+            | sed -E 's/.*"v([^"]+)".*/\1/'
+        warn: False
+      register: latest_version
+    - name: Download font
+      vars:
+        v: "{{ latest_version.stdout }}"
+      get_url: 
+        url: "{{ repo_pre }}/v{{ v }}/JetBrainsMono-{{ v }}.zip"
+        dest: /tmp/JetBrainsMono-{{ v }}.zip
+    - name: Create unarchive directory
+      vars:
+        v: "{{ latest_version.stdout }}"
+      file:
+        path: /tmp/JetBrainsMono-{{ v }}
+        state: directory
+    - name: Extract font
+      vars:
+        v: "{{ latest_version.stdout }}"
+      unarchive: 
+        remote_src: yes
+        src: /tmp/JetBrainsMono-{{ v }}.zip 
+        dest: /tmp/JetBrainsMono-{{ v }}
+    - name: Create directory
+      vars:
+        v: "{{ latest_version.stdout }}"
+      file:
+        path: "{{ dest }}"
+        state: directory
+    - name: Copy files
+      vars:
+        v: "{{ latest_version.stdout }}"
+      copy:
+        remote_src: yes
+        src: /tmp/JetBrainsMono-{{ v }}/fonts/ttf/
+        dest: "{{ dest }}"
+    - name: Clean
+      vars:
+        v: "{{ latest_version.stdout }}"
+      file:
+        path: /tmp/JetBrainsMono-{{ v }}*
+        state: absent
+
+- name: Uninstall JetBrains Mono font
+  hosts: all
+  vars:
+    system: "{{ ansible_facts.system | lower }}"
+    dest: "{{ '~/Library/Fonts/JetBrainsMono' if system == 'darwin' else '~/.fonts/JetBrainsMono' }}"
+  tags:
+    - uninstall
+  tasks:
+    - name: Remove font directory
+      file: 
+        path: "{{ dest }}"
+        state: absent
